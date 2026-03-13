@@ -1,28 +1,125 @@
-# Suivi logique du début : main.py
+# 🧠 Heuristique du Code — Version Moderne du Système Grok
 
-Le module de démarrage 'main.py' demande au module 'system.py' de traiter les modes gammiques dans le désordre, afin de transformer les modes quelconques en modes toniques. Ce qui veut dire que les modes originaux forment une liste de soixante-six éléments modaux dont les niveaux diatoniques sont mathématiquement établis. <br>
-Pour que le mode tonique puisse être établi, chaque mode doit être renversé pour évaluer le degré modal qui représentera la gamme. Cette opération ne peut se réaliser en une seule fois et le plus simple est de commencer les renversements en joignant le module 'system.py' via `from PythonProjectGammes.system import analyser_gammes`.
-## Module system.py
-Réalise trois opérations :
+Ce document décrit l’architecture moderne du projet **PythonProjectGammes**, ainsi que les transformations réalisées pour rendre le système plus lisible, modulaire et fidèle à la logique originelle du programme Grok.<br>
+L’objectif principal a été de démanteler le code monolithique d’origine pour en extraire des modules cohérents, **tout en préservant strictement la logique musicale et mathématique** du système.
 
-`from .intervals import SystemeIntervalles`
-* SYSTEM intervals/gam_notes {(1, (1, 1, 1, 1, 1, 1, 6)): [[(0, 'C'), ('-', 'D'), ('o', 'E'), ('o', 'F')…]]}.
+### 1. 🎼 Architecture générale
 
-`from .signatures import SignatureSystem`
-* SYSTEM signatures/dic_sig {(1, 1, 1, 1, 1, 1, 6): [[(1, 0), (2, -1), (3, -2), (4, -2)...]]}.
+Le projet est désormais organisé en modules spécialisés :
 
-`from .selection import SelectionGammes`
-* SYSTEM selection/fondamentales: {((1, 1, 1, 1, 1, 1, 6), 5): {'notes': ['C', 'D', 'E', 'F', 'G', 'A', 'B'], 'type': None, 'signature': [(1, 0), (2, -1), (3, -2), (4, -2), (5, 2), (6, 1), (7, 0)], 'renversement': (1, 1, 1, 6, 1, 1, 1), 'forces': ['o4', 'x5'], 'effets': ['o3', '-2', 'o4', 'x5', '+6'], 'poids': {'FORT': [-6, 1], 'EFFET': [-5, -8, -14, -7, 0]}}.
+**Module	        Rôle**<br>
+`intervals.py`	    Génère les structures intervalliques et les renversements (dic_rang).<br>
+`signatures.py`	    Produit les signatures modales (dic_sig).<br>
+`alterations.py`	Produit les gammes altérées (gam_notes).<br>
+`selection.py`	    Sélectionne les modes légers, calcule forces/effets/poids, construit dic_gen, dic_poids et les gammes fondamentales.<br>
+`system.py`	        Orchestrateur : relie tous les modules.<br>
+`main.py`	        Point d’entrée du programme.<br>
 
-#### Après une courte réflexion
-Le problème apparait dans le module `selection.py`, qui ne distingue pas clairement les septièmes majeures. <br>
-Dans sa globalité de cette première analyse, les modulations diatoniques des intervalles sont absentes.
+Cette structure permet :
 
-**Corrections :** <br>
-1. [x] Une première correction y a été réalisée en faisant en sorte de détecter la gamme naturellement majeure, ce qui n'était pas le cas.
-2. Distinction du poids des altérations et celui du nombre de notes altérées : 
+* une meilleure lisibilité,
+* une maintenance plus simple,
+* une vérification plus facile de la fidélité au code d’origine,
+* une future extension (ex. : nommer les 462 modes).
 
+### 2. 🎵 Ce qui a été reconstruit depuis le code d’origine
 
-## Module signatures.py
-Rien à signaler pour le moment.
-## Module selection.py
+**2.1. Extraction des signatures (`dic_sig`)**<br>
+Le code d’origine générait les signatures modales en interne.
+Elles sont maintenant produites dans `signatures.py`, mais la logique est identique :
+
+* altérations par degré,
+* structure (`degré, altération`),
+* Sept signatures par structure intervallique.
+
+**2.2. Reconstruction des gammes altérées (`gam_notes`)**<br>
+Le module alterations.py applique les altérations aux notes musicales.<br>
+La logique d’origine a été conservée :
+
+* correspondance degré → note,
+* application des altérations,
+* gestion des cas particuliers.
+
+**2.3. Reconstruction des renversements (`dic_rang`)**<br>
+Le module `intervals.py` génère les renversements modaux.
+La logique est identique à celle du code d’origine.
+
+### 3. ⚖️ Reconstruction complète de la sélection des modes (`selection`.py)
+
+C’est le module le plus complexe et le plus fidèle au code d’origine.
+
+Il reprend toute la logique de la zone ~431 du programme monolithique :
+
+**✔️ Analyse des forces et effets**<br>
+Réécriture propre de `func_gam`() :
+
+* extraction des degrés signés,
+* application de la table `alteractions`,
+* hiérarchie interne,
+* élimination des doublons,
+* ajout des altérations non couvertes.
+
+**✔️ Calcul des poids maximaux (`dic_max`)**<br>
+Même logique que l’ancien code :
+
+* poids = valeur absolue des altérations,
+* poids maximal par mode,
+* tri par poids croissant.
+
+**✔️ Collecte des modes candidats (`lis_retours`)**<br>
+Reconstruction fidèle :
+
+* gestion de `fix_poids`,
+* gestion de `rem_deg`,
+* gestion de `keys_max` et `keys_cop`,
+* ajout des modes primordiaux,
+* ajout des modes altérés.
+
+**✔️ Sélection finale des modes légers**<br>
+Même logique :
+
+* envergure minimale (forces),
+* poids minimal,
+* résolution des égalités.
+
+**✔️ Construction des structures finales**<br>
+Reconstruction fidèle de :
+
+* `dic_gen` : triplets (signature, gamme altérée, renversement),
+* `dic_poids` : poids FORT / EFFET,
+* `gammes_fondamentales` : notes altérées + type `"Maj"` si primordiale.
+
+✔**️ Sortie regroupée**
+
+La sortie moderne regroupe toutes les informations par gamme :
+
+`python <br>
+(k_sig, mode_index): {
+
+    "notes": [...],
+    "type": "Maj" ou None,
+    "signature": [...],
+    "renversement": (...),
+    "forces": [...],
+    "effets": [...],
+    "poids": {
+        "FORT": [...],
+        "EFFET": [...]
+    }`
+}
+
+### 4. 🎯 Fidélité au code d’origine
+
+La version moderne :
+* conserve strictement la logique Grok,
+* reproduit les mêmes sélections,
+* reconstruit les mêmes triplets structurels,
+* calcule les mêmes forces/effets,
+* calcule les mêmes poids,
+* produit les mêmes gammes fondamentales.
+
+**Les seules différences sont :**
+* une architecture modulaire,
+* un code plus lisible,
+* des commentaires clairs,
+* une sortie regroupée.

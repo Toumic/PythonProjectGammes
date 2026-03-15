@@ -15,8 +15,12 @@ Ce module reprend fidèlement la logique du programme original :
 
 La sortie est regroupée par gamme, mais la logique interne est identique.
 """
-
 from typing import Dict, List, Tuple, Any
+import inspect
+from typing import Callable
+
+# lino() Pour consulter le programme grâce au suivi des print’s
+lineno: Callable[[], int] = lambda: inspect.currentframe().f_back.f_lineno
 
 
 class SelectionGammes:
@@ -86,6 +90,7 @@ class SelectionGammes:
                 signe = self.sig_not[alt]  # Récupère le signe d'altération
                 loc = signe + str(deg)  # Composition du degré signé
 
+                # Ne récupère que les éléments à effet altéractif
                 for groupe in self.alteractions[deg]:
                     if loc == groupe[0]:
                         # Ajout de la force principale
@@ -181,24 +186,8 @@ class SelectionGammes:
                     # On consomme ce degré
                     rem_deg.remove(mode_index)
 
-                    # Gamme primordiale
-                    if sig[-1][1] == 0 and fip == 0:
-                        if cdm in keys_cop:
-                            keys_cop.remove(cdm)
-                            gamme = [n[1] for n in self.gam_notes[(k_key, k_sig)][mode_index - 1]]
-                            gamme.append("Maj")
-                            self.gammes_fondamentales[(k_sig, mode_index)] = {
-                                "notes": gamme,
-                                "type": "Maj",
-                                "signature": sig,
-                                "renversement": self.dic_rang[k_key][mode_index - 1],
-                                "forces": [],
-                                "effets": [],
-                                "poids": {"FORT": [], "EFFET": []},
-                            }
-
                     # Autres gammes
-                    elif fip in (1, 2, 3):
+                    if fip in (1, 2, 3):
                         if cdm in keys_cop:
                             effets, forces = self._analyser_forces_effets(sig)
                             if forces:
@@ -266,8 +255,19 @@ class SelectionGammes:
             5: "Dominante", 6: "Harmonique", 7: "Sensible"
         }
         type_gam_rang = {
-            -1: ".", -2: "di.", -3: "tri.",  # D'autres extensions sont possibles.
-            1: "a.", 2: "dia.", 3: "tria."
+            # Bémols (préfixes latins)
+            -1: ".",  # un bémol
+            -2: "di.",  # deux bémols
+            -3: "tri.",  # trois bémols
+            -4: "quadri.",  # quatre bémols
+            -5: "quinti.",  # cinq bémols
+
+            # Dièses (mêmes préfixes avec 'a.')
+            1: "a.",  # un dièse
+            2: "dia.",  # deux dièses
+            3: "tria.",  # trois dièses
+            4: "quadria.",  # quatre dièses
+            5: "quintia."  # cinq dièses
         }
 
         if k_sig not in self.dic_gen:
@@ -291,35 +291,75 @@ class SelectionGammes:
             if (clef1, k_key) not in self.dic_poids:
                 self.dic_poids[(clef1, k_key)] = {"FORT": [], "EFFET": []}
 
-            po_fort_pg = 0
-            po_eff_pg = 0
+            # Traiter les modèles res_fo à entrées multiples
+            if len(res_fo) > 1:
+                print()
+                fort, effet = [], []
+                for rf in range(len(res_fo)):
+                    (effets, forces), (mem_sig, max_mem, sig, mode_index), _ = lis_retours[res_fo[rf]]
 
-            # Forces
-            for f in forces:
-                for deg, alt in sig:
-                    if int(f[-1]) == deg:
-                        val = deg if alt >= 0 else -deg
-                        po_fort_pg += val + alt
+                    po_fort_pg = 0
+                    po_eff_pg = 0
+
+                    # Forces
+                    for f in forces:
+                        for deg, alt in sig:
+                            if int(f[-1]) == deg:
+                                val = deg if alt >= 0 else -deg
+                                po_fort_pg += val + alt
+                    fort.append(po_fort_pg)
+
+                    # Effets
+                    for e in effets:
+                        for deg, alt in sig:
+                            if int(e[-1]) == deg:
+                                val = deg if alt >= 0 else -deg
+                                po_eff_pg += val + alt
+                    effet.append(po_eff_pg)
+                    (lineno(), "rf", rf, "lis_retours", lis_retours[res_fo[rf]], "fort", fort, "effet", effet)
+
+                # Inspection des poids altératifs forts et faibles.
+                rft = []
+                for rf in range(len(res_fo)):
+                    tot = fort[rf] + effet[rf]
+                    rft.append(tot)
+                    (lineno(), "rf", rf, "fort", fort[rf], "effet", effet[rf])
+                min_rft = min(rft)
+                ind_min = rft.index(min_rft)
+                (effets, forces), (mem_sig, max_mem, sig, mode_index), _ = lis_retours[res_fo[ind_min]]
+                (lineno(), "rft", rft, "min_rft", min_rft)
+                # Après vérification, il n'y a pas : if rft.count(min_rft) > 1:
+            else:
+                po_fort_pg = 0
+                po_eff_pg = 0
+
+                # Forces
+                for f in forces:
+                    for deg, alt in sig:
+                        if int(f[-1]) == deg:
+                            val = deg if alt >= 0 else -deg
+                            po_fort_pg += val + alt
                 self.dic_poids[(clef1, k_key)]["FORT"].append(po_fort_pg)
 
-            # Effets
-            for e in effets:
-                for deg, alt in sig:
-                    if int(e[-1]) == deg:
-                        val = deg if alt >= 0 else -deg
-                        po_eff_pg += val + alt
+                # Effets
+                for e in effets:
+                    for deg, alt in sig:
+                        if int(e[-1]) == deg:
+                            val = deg if alt >= 0 else -deg
+                            po_eff_pg += val + alt
                 self.dic_poids[(clef1, k_key)]["EFFET"].append(po_eff_pg)
 
             # Définition du type du mode retenu.
+            # {[(., di., tri., a., dia., tria.)]Tonice, Tonale, Mélodique, Médiane, Dominante, Harmonique, Sensible.}
             type_mode, si2, si3 = "", 0, 0
             for si1 in forces:
                 si2 = [s for s in sig if s[0] == int(si1[1][-1])]
                 if len(forces) != 1:
                     t_nom, t_rang = type_gam_nom[si2[0][0]], type_gam_rang[si2[0][1]]
                     if si3 == 0:
-                        type_mode = t_rang + t_nom + " & "
+                        type_mode = t_rang + t_nom
                     else:
-                        type_mode += t_rang + t_nom
+                        type_mode += " & " + t_rang + t_nom
                     si3 += 1
                 else:
                     t_nom, t_rang = type_gam_nom[si2[0][0]], type_gam_rang[si2[0][1]]
@@ -373,7 +413,7 @@ class SelectionGammes:
                     self.gammes_fondamentales[(k_sig, nbr)] = {
                         "notes": ["C", "D", "E", "F", "G", "A", "B"],
                         "type": "Majeure",
-                        "signature": "Maj",
+                        "signal": "Maj",
                         "renversement": (2, 2, 1, 2, 2, 2, 1),
                         "forces": [],
                         "effets": [],

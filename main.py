@@ -11,7 +11,9 @@ def print_hi(intervalles_grok):
     ligne = 0
     for cle, gamme in resultat["gammes_fondamentales"].items():
         ligne += 1
-        print(ligne, "cle", cle, "gamme", gamme)
+        g = gamme
+        (ligne, cle, "G", g['notes'], g)
+        print(ligne, "cle", cle[0], "G", g['signal'], g['forces'], g['effets'])
     # ("\nRésultat")
 
     print("\n=== Nombre de signatures ===")

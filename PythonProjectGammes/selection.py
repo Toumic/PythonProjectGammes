@@ -16,6 +16,8 @@ Ce module reprend fidèlement la logique du programme original :
 La sortie est regroupée par gamme, mais la logique interne est identique.
 """
 from typing import Dict, List, Tuple, Any
+from .notes import SIG_NOT
+
 import inspect
 from typing import Callable
 
@@ -32,10 +34,10 @@ class SelectionGammes:
     """
 
     def __init__(
-        self,
-        dic_sig: Dict[Tuple[int, ...], List[List[Tuple[int, int]]]],
-        gam_notes: Dict[Tuple[int, Tuple[int, ...]], List[List[Tuple[str, str]]]],
-        dic_rang: Dict[int, List[Tuple[int, ...]]],
+            self,
+            dic_sig: Dict[Tuple[int, ...], List[List[Tuple[int, int]]]],
+            gam_notes: Dict[Tuple[int, Tuple[int, ...]], List[List[Tuple[str, str]]]],
+            dic_rang: Dict[int, List[Tuple[int, ...]]],
     ) -> None:
 
         # Données d'entrée
@@ -151,11 +153,11 @@ class SelectionGammes:
     # -------------------------------------------------------------------------
 
     def _collecter_modes_candidats(
-        self,
-        k_sig: Tuple[int, ...],
-        dic_max: Dict,
-        c_max: List[Tuple[int, int]],
-        k_key: int,
+            self,
+            k_sig: Tuple[int, ...],
+            dic_max: Dict,
+            c_max: List[Tuple[int, int]],
+            k_key: int,
     ) -> List[Any]:
         """
         Construit lis_retours : liste des modes candidats avec leurs forces/effets.
@@ -239,152 +241,180 @@ class SelectionGammes:
     # -------------------------------------------------------------------------
 
     def _traiter_modes_retenus(
-        self,
-        k_sig: Tuple[int, ...],
-        k_key: int,
-        lis_retours: List[Any],
-        res_fo: List[int],
+            self,
+            k_sig: Tuple[int, ...],
+            k_key: int,
+            lis_retours: List[Any],
+            res_fo: List[int],
     ) -> None:
         """
         Construit dic_gen, dic_poids et gammes_fondamentales pour les modes retenus.
         """
 
-        # Fixation des types des gammes
+        # --- 1) Tables des types de gammes ---
         type_gam_nom = {
             1: "Tonice", 2: "Tonale", 3: "Mélodique", 4: "Médiane",
             5: "Dominante", 6: "Harmonique", 7: "Sensible"
         }
         type_gam_rang = {
-            # Bémols (préfixes latins)
-            -1: ".",  # un bémol
-            -2: "di.",  # deux bémols
-            -3: "tri.",  # trois bémols
-            -4: "quadri.",  # quatre bémols
-            -5: "quinti.",  # cinq bémols
-
-            # Dièses (mêmes préfixes avec 'a.')
-            1: "a.",  # un dièse
-            2: "dia.",  # deux dièses
-            3: "tria.",  # trois dièses
-            4: "quadria.",  # quatre dièses
-            5: "quintia."  # cinq dièses
+            -1: ".", -2: "di.", -3: "tri.", -4: "quadri.", -5: "quinti.",
+            1: "a.", 2: "dia.", 3: "tria.", 4: "quadria.", 5: "quintia."
         }
 
+        # --- 2) Initialisation de dic_gen ---
         if k_sig not in self.dic_gen:
             self.dic_gen[k_sig] = []
 
-        for idx in res_fo:
-            (effets, forces), (mem_sig, max_mem, sig, mode_index), _ = lis_retours[idx]
+        # --- 3) Fonction interne : choisir un seul mode final ---
+        def _choisir_mode_final(indices):
+            if len(indices) == 1:
+                return indices[0]
 
-            # Renversement associé
-            renv = self.dic_rang[k_key][mode_index - 1]
+            scores = []
+            for rf in indices:
+                (eff_rf, for_rf), (_, _, sig_rf, idx_rf), _ = lis_retours[rf]
 
-            # Gamme altérée
-            gam_alt = self.gam_notes[(k_key, k_sig)][mode_index - 1]
-            gamme_notes = [(n[0] if isinstance(n[0], str) else '') + n[1] for n in gam_alt]
-
-            # Ajout dans dic_gen
-            self.dic_gen[k_sig].append((sig, self.gam_notes[(k_key, k_sig)][mode_index - 1], renv))
-
-            # Calcul des poids gravitationnels
-            clef1 = renv
-            if (clef1, k_key) not in self.dic_poids:
-                self.dic_poids[(clef1, k_key)] = {"FORT": [], "EFFET": []}
-
-            # Traiter les modèles res_fo à entrées multiples
-            if len(res_fo) > 1:
-                print()
-                fort, effet = [], []
-                for rf in range(len(res_fo)):
-                    (effets, forces), (mem_sig, max_mem, sig, mode_index), _ = lis_retours[res_fo[rf]]
-
-                    po_fort_pg = 0
-                    po_eff_pg = 0
-
-                    # Forces
-                    for f in forces:
-                        for deg, alt in sig:
-                            if int(f[-1]) == deg:
-                                val = deg if alt >= 0 else -deg
-                                po_fort_pg += val + alt
-                    fort.append(po_fort_pg)
-
-                    # Effets
-                    for e in effets:
-                        for deg, alt in sig:
-                            if int(e[-1]) == deg:
-                                val = deg if alt >= 0 else -deg
-                                po_eff_pg += val + alt
-                    effet.append(po_eff_pg)
-                    (lineno(), "rf", rf, "lis_retours", lis_retours[res_fo[rf]], "fort", fort, "effet", effet)
-
-                # Inspection des poids altératifs forts et faibles.
-                rft = []
-                for rf in range(len(res_fo)):
-                    tot = fort[rf] + effet[rf]
-                    rft.append(tot)
-                    (lineno(), "rf", rf, "fort", fort[rf], "effet", effet[rf])
-                min_rft = min(rft)
-                ind_min = rft.index(min_rft)
-                (effets, forces), (mem_sig, max_mem, sig, mode_index), _ = lis_retours[res_fo[ind_min]]
-                (lineno(), "rft", rft, "min_rft", min_rft)
-                # Après vérification, il n'y a pas : if rft.count(min_rft) > 1:
-            else:
-                po_fort_pg = 0
-                po_eff_pg = 0
+                fort_score = 0
+                effet_score = 0
 
                 # Forces
-                for f in forces:
-                    for deg, alt in sig:
-                        if int(f[-1]) == deg:
-                            val = deg if alt >= 0 else -deg
-                            po_fort_pg += val + alt
-                self.dic_poids[(clef1, k_key)]["FORT"].append(po_fort_pg)
+                for f_rf in for_rf:
+                    for deg_rf, alt_rf in sig_rf:
+                        if int(f_rf[-1]) == deg_rf:
+                            val_rf = deg_rf if alt_rf >= 0 else -deg_rf
+                            fort_score += val_rf + alt_rf
 
                 # Effets
-                for e in effets:
-                    for deg, alt in sig:
-                        if int(e[-1]) == deg:
-                            val = deg if alt >= 0 else -deg
-                            po_eff_pg += val + alt
-                self.dic_poids[(clef1, k_key)]["EFFET"].append(po_eff_pg)
+                for e_rf in eff_rf:
+                    for deg_rf, alt_rf in sig_rf:
+                        if int(e_rf[-1]) == deg_rf:
+                            val_rf = deg_rf if alt_rf >= 0 else -deg_rf
+                            effet_score += val_rf + alt_rf
 
-            # Définition du type du mode retenu.
-            # {[(., di., tri., a., dia., tria.)]Tonice, Tonale, Mélodique, Médiane, Dominante, Harmonique, Sensible.}
-            type_mode, si2, si3 = "", 0, 0
-            for si1 in forces:
-                si2 = [s for s in sig if s[0] == int(si1[1][-1])]
-                if len(forces) != 1:
-                    t_nom, t_rang = type_gam_nom[si2[0][0]], type_gam_rang[si2[0][1]]
-                    if si3 == 0:
-                        type_mode = t_rang + t_nom
-                    else:
-                        type_mode += " & " + t_rang + t_nom
-                    si3 += 1
-                else:
-                    t_nom, t_rang = type_gam_nom[si2[0][0]], type_gam_rang[si2[0][1]]
-                    type_mode = t_rang + t_nom
+                scores.append(fort_score + effet_score)
 
-            # Déclaration du signal
-            if len(forces) == 1:
-                signal = forces[0]
+            ind_min = scores.index(min(scores))
+            return indices[ind_min]
+
+        # --- 4) Sélection du mode final ---
+        idx = _choisir_mode_final(res_fo)
+
+        # --- 5) Extraction des données du mode choisi ---
+        (effets, forces), (mem_sig, max_mem, sig, mode_index), _ = lis_retours[idx]
+
+        # Renversement
+        renv = self.dic_rang[k_key][mode_index - 1]
+
+        # Gamme altérée
+        gam_alt = self.gam_notes[(k_key, k_sig)][mode_index - 1]
+        gamme_notes = [(n[0] if isinstance(n[0], str) else '') + n[1] for n in gam_alt]
+
+        # --- 6) Ajout dans dic_gen ---
+        self.dic_gen[k_sig].append((sig, gam_alt, renv))
+
+        # --- 7) Calcul des poids gravitationnels ---
+        fort_pg = 0
+        effet_pg = 0
+
+        for f in forces:
+            for deg, alt in sig:
+                if int(f[-1]) == deg:
+                    val = deg if alt >= 0 else -deg
+                    fort_pg += val + alt
+
+        for e in effets:
+            for deg, alt in sig:
+                if int(e[-1]) == deg:
+                    val = deg if alt >= 0 else -deg
+                    effet_pg += val + alt
+
+        self.dic_poids[(renv, k_key)] = {
+            "FORT": [fort_pg],
+            "EFFET": [effet_pg]
+        }
+
+        # --- 8) Définition du type du mode ---
+        type_mode = ""
+        first = True
+        for si1 in forces:
+            si2 = [s for s in sig if s[0] == int(si1[1][-1])]
+            t_nom = type_gam_nom[si2[0][0]]
+            t_rang = type_gam_rang[si2[0][1]]
+
+            if first:
+                type_mode = t_rang + t_nom
+                first = False
             else:
-                x, y = forces
-                if x[0] == y[0]:
-                    signal = x + y[1]
-                else:
-                    signal = x + y[1] + y[0]
+                type_mode += " & " + t_rang + t_nom
 
-            # Enregistrement de la gamme fondamentale
-            self.gammes_fondamentales[(k_sig, mode_index)] = {
-                "notes": gamme_notes,  # Les notes signées de la gamme.
-                "type": type_mode,  # Classe la gamme selon sa famille et son rang.
-                "signal": signal,  # Les degrés connus dans la liste des forces.
-                "renversement": renv,  # Renversement par rapport aux intervalles originaux.
-                "forces": forces,
-                "effets": effets,
-                "poids": self.dic_poids[(clef1, k_key)],
-            }
+        # --- 9) Détection d’anomalies dans les effets ---
+        eff_mem, dir_mem = [], []
+        if effets:
+            eff_list = [et[-1] for et in effets]
+            for e in eff_list:
+                if eff_list.count(e) > 1:
+                    eff_mem = [dm for dm in effets if dm[-1] == e]
+                    eff_mem.sort(key=lambda ex: ex[0])
+                    if eff_mem not in dir_mem:
+                        dir_mem.append(eff_mem)
+
+        # Conversion des variations anormales et déclaration du signal scientifique
+        # SIG_NOT = ['', '+', 'x', '^', '+^', 'x^', 'o*', '-*', '*', 'o', '-']
+        deg_s, ind_s, s0, s1, s2 = "", None, 0, 0, 0
+        if dir_mem:
+            for_list = [fl[-1] for fl in forces]
+            for edm in dir_mem:
+                for e in edm:
+                    # On traite les éléments qui sont parmi les forces.
+                    if e[-1] in for_list:
+                        deg_s, ind_s = e[-1], for_list.index(e[-1])  # Le degré concerné par l'évolution.
+                        s0 += 1
+                        sig_e = e[:len(e) - 1]
+                        ind_e = SIG_NOT.index(sig_e)
+                        if s0 == 1:
+                            s1 = ind_e
+                        if s0 == 2:
+                            s2 = ind_e
+            # Calculer la différence de la hauteur des altérations.
+            # (Les chevauchements ne sont pas traités)
+            ind_e = None
+            if s1 < 6 and s2 < 6:
+                if s1 > s2:
+                    ind_e = s1 - s2
+                else:
+                    ind_e = s2 - s1
+
+            if s1 > 5 and s2 > 5:
+                if s1 > s2:
+                    ind_e = len(SIG_NOT) - (s1 - s2)
+                else:
+                    ind_e = len(SIG_NOT) - (s2 - s1)
+            # Affecter cette différence à la note altérée et modifier les forces.
+            sig_s = SIG_NOT[ind_e]
+            note_alt = sig_s + deg_s
+            forces[ind_s] = note_alt
+
+
+        # --- 10) Déclaration du signal basique---
+        if len(forces) == 1:
+            signal = forces[0]
+        else:
+            x, y = forces
+            if x[:-1] == y[:-1]:
+                signal = x + y[-1]
+            else:
+                signal = x + y[-1] + y[:-1]
+
+        # --- 11) Enregistrement de la gamme fondamentale ---
+        self.gammes_fondamentales[(k_sig, mode_index)] = {
+            "notes": gamme_notes,
+            "type": type_mode,
+            "signal": signal,
+            "renversement": renv,
+            "forces": forces,
+            "effets": effets,
+            "poids": self.dic_poids[(renv, k_key)],
+        }
 
     # -------------------------------------------------------------------------
     #  Méthode principale

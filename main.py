@@ -13,14 +13,14 @@ def print_hi(intervalles_grok):
         ligne += 1
         g = gamme
         (ligne, cle, "G", g['notes'], g)
-        print(ligne, "cle", cle[0], "G", g['signal'], g['forces'], g['effets'])
+        (ligne, "cle", cle[0], "G", g['signal'], g['forces'], g['effets'])
     # ("\nRésultat")
 
-    print("\n=== Nombre de signatures ===")
-    print(len(resultat["dic_sig"]))
+    # print("\n=== Nombre de signatures ===")
+    # print(len(resultat["dic_sig"]))
 
-    print("\n=== Nombre de gammes altérées ===")
-    print(len(resultat["gam_notes"]))
+    # print("\n=== Nombre de gammes altérées ===")
+    # print(len(resultat["gam_notes"]))
 
 
 if __name__ == '__main__':

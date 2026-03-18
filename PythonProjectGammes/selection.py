@@ -16,11 +16,10 @@ Ce module reprend fidèlement la logique du programme original :
 La sortie est regroupée par gamme, mais la logique interne est identique.
 """
 from typing import Dict, List, Tuple, Any
-from .notes import SIG_NOT
+from .notes import SIG_NOT, GAM_NOM, GAM_RANG
 
 import inspect
 from typing import Callable
-
 # lino() Pour consulter le programme grâce au suivi des print’s
 lineno: Callable[[], int] = lambda: inspect.currentframe().f_back.f_lineno
 
@@ -51,7 +50,7 @@ class SelectionGammes:
         self.gammes_fondamentales: Dict[Tuple[Tuple[int, ...], int], Dict[str, Any]] = {}
 
         # Tables internes Grok
-        self.not_mus = ["C", "D", "E", "F", "G", "A", "B"]
+        # self.not_mus = ["C", "D", "E", "F", "G", "A", "B"]
         self.sig_not = ["", "+", "x", "^", "+^", "x^", "o*", "-*", "*", "o", "-"]
 
         # Table des altéractions (héritée du code original)
@@ -251,15 +250,15 @@ class SelectionGammes:
         Construit dic_gen, dic_poids et gammes_fondamentales pour les modes retenus.
         """
 
-        # --- 1) Tables des types de gammes ---
-        type_gam_nom = {
+        # --- 1) Tables des types de gammes --- (image)
+        '''self.type_gam_nom = {
             1: "Tonice", 2: "Tonale", 3: "Mélodique", 4: "Médiane",
             5: "Dominante", 6: "Harmonique", 7: "Sensible"
         }
-        type_gam_rang = {
+        self.type_gam_rang = {
             -1: ".", -2: "di.", -3: "tri.", -4: "quadri.", -5: "quinti.",
             1: "a.", 2: "dia.", 3: "tria.", 4: "quadria.", 5: "quintia."
-        }
+        }'''
 
         # --- 2) Initialisation de dic_gen ---
         if k_sig not in self.dic_gen:
@@ -338,8 +337,8 @@ class SelectionGammes:
         first = True
         for si1 in forces:
             si2 = [s for s in sig if s[0] == int(si1[1][-1])]
-            t_nom = type_gam_nom[si2[0][0]]
-            t_rang = type_gam_rang[si2[0][1]]
+            t_nom = GAM_NOM[si2[0][0]]
+            t_rang = GAM_RANG[si2[0][1]]
 
             if first:
                 type_mode = t_rang + t_nom
@@ -407,13 +406,16 @@ class SelectionGammes:
 
         # --- 11) Enregistrement de la gamme fondamentale ---
         self.gammes_fondamentales[(k_sig, mode_index)] = {
-            "notes": gamme_notes,
+            "notes": list(gamme_notes),
             "type": type_mode,
             "signal": signal,
             "renversement": renv,
-            "forces": forces,
-            "effets": effets,
-            "poids": self.dic_poids[(renv, k_key)],
+            "forces": list(forces),
+            "effets": list(effets),
+            "poids": {
+                "FORT": list(self.dic_poids[(renv, k_key)]["FORT"]),
+                "EFFET": list(self.dic_poids[(renv, k_key)]["EFFET"])
+            }
         }
 
     # -------------------------------------------------------------------------

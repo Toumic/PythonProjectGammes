@@ -3,12 +3,13 @@
 # vicenté quantic cabviva
 
 from typing import List, Tuple, Dict
+from .notes import SIG_NOT, NOTES
 
-# Notes naturelles
-NOTES = ["C", "D", "E", "F", "G", "A", "B"]
+# Notes naturelles (image)
+# NOTES = ["C", "D", "E", "F", "G", "A", "B"]
 
-# Signes d'altération
-SIG_NOT = ["", "+", "x", "^", "+^", "x^", "o*", "-*", "*", "o", "-"]
+# Signes d'altération (image)
+# SIG_NOT = ["", "+", "x", "^", "+^", "x^", "o*", "-*", "*", "o", "-"]
 
 # Intervalles de la gamme majeure
 INT_MAJ = (2, 2, 1, 2, 2, 2, 1)

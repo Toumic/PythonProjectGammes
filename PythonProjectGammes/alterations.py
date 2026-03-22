@@ -2,19 +2,8 @@
 # -*- coding: utf-8 -*-
 # vicenté quantic cabviva
 
-from typing import List, Tuple, Dict
-from .notes import SIG_NOT
-
-
-# Dictionnaire des forces altéractives (inchangé)
-ALTERACTIONS: Dict[int, List[List[str]]] = {
-    2: [["x2", "+3", "+4"], ["^2", "x3", "x4", "+5"], ["+^2", "^3", "^4", "x5", "+6"]],
-    3: [["+3", "+4"], ["x3", "x4", "+5"], ["^3", "^4", "x5", "+6"], ["o3", "-2"]],
-    4: [["x4", "+5"], ["^4", "x5", "+6"], ["o4", "o3", "-2"], ["-4", "-3"]],
-    5: [["x5", "+6"], ["o5", "-4", "-3"], ["*5", "o4", "o3", "-2"]],
-    6: [["o6", "-5"], ["*6", "o5", "-4", "-3"], ["-*6", "*5", "o4", "o3", "-2"]],
-    7: [["o7", "-6"], ["*7", "o6", "-5"], ["-*7", "*6", "o5", "-4", "-3"], ["o*7", "-*6", "*5", "o4", "o3", "-2"]],
-}
+from typing import List, Tuple
+from .notes import SIG_NOT, ALTERACTIONS
 
 
 class AnalyseAlterations:

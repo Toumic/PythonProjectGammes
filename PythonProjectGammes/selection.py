@@ -16,7 +16,7 @@ Ce module reprend fidèlement la logique du programme original :
 La sortie est regroupée par gamme, mais la logique interne est identique.
 """
 from typing import Dict, List, Tuple, Any
-from .notes import SIG_NOT, GAM_NOM, GAM_RANG
+from .notes import SIG_NOT, GAM_NOM, GAM_RANG, ALTERACTIONS
 
 import inspect
 from typing import Callable
@@ -51,18 +51,7 @@ class SelectionGammes:
 
         # Tables internes Grok
         # self.not_mus = ["C", "D", "E", "F", "G", "A", "B"]
-        self.sig_not = ["", "+", "x", "^", "+^", "x^", "o*", "-*", "*", "o", "-"]
-
-        # Table des altéractions (héritée du code original)
-        self.alteractions = {
-            2: [["x2", "+3", "+4"], ["^2", "x3", "x4", "+5"], ["+^2", "^3", "^4", "x5", "+6"]],
-            3: [["+3", "+4"], ["x3", "x4", "+5"], ["^3", "^4", "x5", "+6"], ["o3", "-2"]],
-            4: [["x4", "+5"], ["^4", "x5", "+6"], ["o4", "o3", "-2"], ["-4", "-3"]],
-            5: [["x5", "+6"], ["o5", "-4", "-3"], ["*5", "o4", "o3", "-2"]],
-            6: [["o6", "-5"], ["*6", "o5", "-4", "-3"], ["-*6", "*5", "o4", "o3", "-2"]],
-            7: [["o7", "-6"], ["*7", "o6", "-5"], ["-*7", "*6", "o5", "-4", "-3"],
-                ["o*7", "-*6", "*5", "o4", "o3", "-2"]],
-        }
+        # self.sig_not = ["", "+", "x", "^", "+^", "x^", "o*", "-*", "*", "o", "-"]
 
     # -------------------------------------------------------------------------
     #  Analyse des forces et effets (réécriture propre de func_gam)
@@ -75,7 +64,7 @@ class SelectionGammes:
         """
 
         # Degrés signés (ex : "x5", "o3", "-2")
-        don_deg = [self.sig_not[a] + str(d) for d, a in sig]
+        don_deg = [SIG_NOT[a] + str(d) for d, a in sig]
 
         effets: List[str] = []
         forces: List[str] = []
@@ -83,16 +72,16 @@ class SelectionGammes:
         # S'assurer que le mode a une septième majeure
         if len(don_deg[-1]) == 1:
 
-            # Première passe : repérage dans alteractions
+            # Première passe : repérage dans ALTERACTION
             for deg, alt in sig:
                 if deg == 1:
                     continue  # la tonique n'est pas traitée ici
 
-                signe = self.sig_not[alt]  # Récupère le signe d'altération
+                signe = SIG_NOT[alt]  # Récupère le signe d'altération
                 loc = signe + str(deg)  # Composition du degré signé
 
                 # Ne récupère que les éléments à effet altéractif
-                for groupe in self.alteractions[deg]:
+                for groupe in ALTERACTIONS[deg]:
                     if loc == groupe[0]:
                         # Ajout de la force principale
                         if loc not in forces:
@@ -105,8 +94,8 @@ class SelectionGammes:
             # Deuxième passe : élimination des doublons hiérarchiques
             for f in list(forces):
                 deg = int(f[-1])
-                if deg in self.alteractions:
-                    for groupe in self.alteractions[deg]:
+                if deg in ALTERACTIONS:
+                    for groupe in ALTERACTIONS[deg]:
                         if groupe[0] == f:
                             for item in groupe[1:]:
                                 if item in forces:
@@ -144,6 +133,10 @@ class SelectionGammes:
             max_mem = max(mem_sig)
             dic_max[(k_sig, mode_index)] = (mem_sig, max_mem, sig, mode_index)
             c_max.append((max_mem, mode_index))
+        (lineno(), "Recherche gamme majeure dic_max", dic_max, "\nc_max", c_max)
+        # 149 dic_max {.../... ((1, 2, 2, 1, 2, 2, 2), 7):
+        # ([0, 0, 0, 0, 0, 0, 0], 0, [(1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0), (7, 0)], 7)}
+        # c_max [(1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (0, 7)]
 
         return dic_max, c_max
 
@@ -171,7 +164,6 @@ class SelectionGammes:
 
         for fip in fix_poids:
             long_fip = sum(1 for m, _ in c_max if m == fip)
-
             while long_fip:
                 for cdm in keys_max:
                     if cdm not in dic_max:
@@ -179,19 +171,22 @@ class SelectionGammes:
 
                     mem_sig, max_mem, sig, mode_index = dic_max[cdm]
 
+                    # Écarter le mode candidat naturellement majeur
                     if max_mem != fip:
+                        (lineno(), "\t max_mem", max_mem)
                         continue
                     if mode_index not in rem_deg:
+                        (lineno(), "\t mode_index", mode_index)
                         continue
 
                     # On consomme ce degré
                     rem_deg.remove(mode_index)
 
                     # Autres gammes
-                    if fip in (1, 2, 3):
+                    if fip in (0, 1, 2, 3):
                         if cdm in keys_cop:
                             effets, forces = self._analyser_forces_effets(sig)
-                            if forces:
+                            if forces or fip == 0:
                                 lis_retours.append(
                                     ((effets, forces), (mem_sig, max_mem, sig, mode_index), (k_key, k_sig))
                                 )
@@ -209,7 +204,8 @@ class SelectionGammes:
     #  Sélection finale des modes légers (forces puis poids)
     # -------------------------------------------------------------------------
 
-    def _selectionner_modes(self, lis_retours: List[Any]) -> List[int]:
+    @staticmethod
+    def _selectionner_modes(lis_retours: List[Any]) -> List[int]:
         """
         Sélectionne les modes les plus légers selon :
         - envergure minimale (forces)
@@ -335,16 +331,19 @@ class SelectionGammes:
         # --- 8) Définition du type du mode ---
         type_mode = ""
         first = True
-        for si1 in forces:
-            si2 = [s for s in sig if s[0] == int(si1[1][-1])]
-            t_nom = GAM_NOM[si2[0][0]]
-            t_rang = GAM_RANG[si2[0][1]]
+        if forces:
+            for si1 in forces:
+                si2 = [s for s in sig if s[0] == int(si1[1][-1])]
+                t_nom = GAM_NOM[si2[0][0]]
+                t_rang = GAM_RANG[si2[0][1]]
 
-            if first:
-                type_mode = t_rang + t_nom
-                first = False
-            else:
-                type_mode += " & " + t_rang + t_nom
+                if first:
+                    type_mode = t_rang + t_nom
+                    first = False
+                else:
+                    type_mode += " & " + t_rang + t_nom
+        else:
+            type_mode = "Majeure"
 
         # --- 9) Détection d’anomalies dans les effets ---
         eff_mem, dir_mem = [], []
@@ -395,26 +394,29 @@ class SelectionGammes:
 
 
         # --- 10) Déclaration du signal basique---
+        signal = None
         if len(forces) == 1:
             signal = forces[0]
-        else:
+        elif len(forces) > 1:
             x, y = forces
             if x[:-1] == y[:-1]:
                 signal = x + y[-1]
             else:
                 signal = x + y[-1] + y[:-1]
+        elif not forces:
+            signal = "maj"
 
         # --- 11) Enregistrement de la gamme fondamentale ---
         self.gammes_fondamentales[(k_sig, mode_index)] = {
-            "notes": list(gamme_notes),
+            "notes": list(gamme_notes).copy(),
             "type": type_mode,
             "signal": signal,
             "renversement": renv,
-            "forces": list(forces),
-            "effets": list(effets),
+            "forces": list(forces).copy(),
+            "effets": list(effets).copy(),
             "poids": {
-                "FORT": list(self.dic_poids[(renv, k_key)]["FORT"]),
-                "EFFET": list(self.dic_poids[(renv, k_key)]["EFFET"])
+                "FORT": list(self.dic_poids[(renv, k_key)]["FORT"].copy()),
+                "EFFET": list(self.dic_poids[(renv, k_key)]["EFFET"].copy())
             }
         }
 
@@ -427,15 +429,15 @@ class SelectionGammes:
         Sélectionne toutes les gammes fondamentales.
         """
 
-        self.gammes_fondamentales.clear()
+        '''self.gammes_fondamentales.clear()
         self.dic_gen.clear()
-        self.dic_poids.clear()
+        self.dic_poids.clear()'''
 
-        stop_gammes = False
+        # stop_gammes = False
 
         for k_sig in self.dic_sig.keys():
 
-            # Découvrir la gamme naturelle
+            '''# Découvrir la gamme naturelle
             nbr = 0
             for ds in self.dic_sig[k_sig]:
                 k_key_naturelle = [str(0) for k in ds if k[1] == 0]
@@ -454,7 +456,7 @@ class SelectionGammes:
                     stop_gammes = True
             # La gamme naturelle est rencontré et le traitement des poids est injustifié.
             if stop_gammes:
-                break
+                break'''
 
             # Trouver k_key correspondant
             k_key_candidates = [k[0] for k in self.gam_notes.keys() if k_sig in k]

@@ -70,4 +70,5 @@ def analyser_gammes(base_intervalles: Dict[int, Tuple[int, ...]]):
         "dic_rang": dic_rang,
         "dic_sig": dic_sig,
         "gammes_fondamentales": fondamentales,
+        "gammes_chromatiques": chrome,
     }
